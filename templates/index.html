@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ResumeIQ</title>
+</head>
+<body>
+    <h2>ResumeIQ Analysis</h2>
+
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <label>Upload Resume:</label><br>
+        <input type="file" name="resume" required><br><br>
+
+        <label>Paste Job Description:</label><br>
+        <textarea name="jd" rows="10" cols="80" required></textarea><br><br>
+
+        <button type="submit">Analyze</button>
+    </form>
+</body>
+
+</html>

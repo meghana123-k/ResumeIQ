@@ -5,6 +5,8 @@ from modules.text_processor import extract_resume_text, clean_text
 from modules.skill_extractor import extract_skills
 from modules.similarity import calculate_similarity
 from flask import jsonify
+from modules.db import save_result
+
 
 app = Flask(__name__)
 
@@ -55,15 +57,14 @@ def upload_resume():
     )
 
     def generate_explanation(skill_match, similarity):
-        if skill_match < 40:
-            return "Low match due to missing core required skills."
-        elif similarity < 20:
-            return "Profile background differs significantly from the job role."
-        elif skill_match >= 70 and similarity >= 50:
-            return "Strong match with required skills and role alignment."
+        if skill_match >= 70 and similarity >= 20:
+            return "Strong alignment with required skills and relevant software development background."
+        elif skill_match >= 70 and similarity < 20:
+            return "Good skill match, but resume presentation differs from job description language."
+        elif skill_match >= 40:
+            return "Partial match; core skills present but some important gaps remain."
         else:
-            return "Partial match; some skills and experience alignment present."
-
+            return "Low match due to missing core required skills."
     explanation = generate_explanation(skill_match_percentage, similarity_score)
 
     response = {
@@ -75,7 +76,7 @@ def upload_resume():
         "missing_skills": missing_skills,
         "explanation": explanation
     }
-
+    save_result(response)
     return jsonify(response)
 
     # return f"<pre>{resume_text[:3000]}</pre>"

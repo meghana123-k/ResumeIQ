@@ -1,72 +1,91 @@
 import os
+from flask import Flask, render_template, request, jsonify
+from werkzeug.utils import secure_filename
 
-from flask import Flask, render_template, request
 from modules.text_processor import extract_resume_text, clean_text
 from modules.skill_extractor import extract_skills
 from modules.similarity import calculate_similarity
-from flask import jsonify
 from modules.db import save_result
+from modules.scoring import generate_explanation  # you already conceptually have this
 
-
-app = Flask(__name__)
+# -------------------- CONFIG --------------------
 
 UPLOAD_FOLDER = "uploads"
+ALLOWED_EXTENSIONS = {"pdf", "docx"}
+
+app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# -------------------- HELPERS --------------------
+
+def allowed_file(filename):
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    )
+
+# -------------------- ROUTES --------------------
+
 @app.route("/")
 def home():
     return render_template("index.html")
 
+
 @app.route("/upload", methods=["POST"])
 def upload_resume():
+    # ---- Validate resume file ----
     if "resume" not in request.files:
-        return "No file uploaded"
+        return "Resume file is missing", 400
 
-    file = request.files["resume"]
     file = request.files["resume"]
 
     if file.filename == "":
-        return "No selected file"
+        return "No resume file selected", 400
 
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+    if not allowed_file(file.filename):
+        return "Invalid file type. Only PDF and DOCX allowed.", 400
+
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(file_path)
 
-    resume_text = extract_resume_text(file_path)
-    print("Length:",len(resume_text))
-    # with open("resume_text.txt", "w", encoding="utf-8") as f:
-    #     f.write(resume_text)
-    if "jd" not in request.form:
-        return "Job Description is missing"
+    # ---- Validate JD ----
+    jd_text = request.form.get("jd", "").strip()
+    if not jd_text:
+        return "Job Description is required", 400
 
-    jd_text = request.form["jd"]
+    # ---- Text Processing ----
+    resume_text = extract_resume_text(file_path)
     clean_jd = clean_text(jd_text)
 
+    # ---- Skill Extraction ----
     resume_skills = extract_skills(resume_text)
     jd_skills = extract_skills(clean_jd)
 
     missing_skills = list(set(jd_skills) - set(resume_skills))
+
+    # ---- Scoring ----
     similarity_score = calculate_similarity(resume_text, clean_jd)
 
-    if len(jd_skills) == 0:
-        skill_match_percentage = 0
+    if not jd_skills:
+        skill_match_percentage = 0.0
     else:
         skill_match_percentage = round(
-            (len(set(jd_skills) - set(missing_skills)) / len(jd_skills)) * 100, 2
+            ((len(jd_skills) - len(missing_skills)) / len(jd_skills)) * 100, 2
         )
+
     final_score = round(
         (0.6 * skill_match_percentage) + (0.4 * similarity_score), 2
     )
 
-    def generate_explanation(skill_match, similarity):
-        if skill_match >= 70 and similarity >= 20:
-            return "Strong alignment with required skills and relevant software development background."
-        elif skill_match >= 70 and similarity < 20:
-            return "Good skill match, but resume presentation differs from job description language."
-        elif skill_match >= 40:
-            return "Partial match; core skills present but some important gaps remain."
-        else:
-            return "Low match due to missing core required skills."
-    explanation = generate_explanation(skill_match_percentage, similarity_score)
+    explanation = generate_explanation(
+        skill_match_percentage,
+        similarity_score
+    )
 
+    # ---- Response Object ----
     response = {
         "skill_match_percentage": skill_match_percentage,
         "similarity_score": similarity_score,
@@ -76,11 +95,18 @@ def upload_resume():
         "missing_skills": missing_skills,
         "explanation": explanation
     }
-    save_result(response)
-    return jsonify(response)
 
-    # return f"<pre>{resume_text[:3000]}</pre>"
-    # return f"File uploaded successfully: {file.filename}"
+    # ---- Persist Result ----
+    save_result(response)
+
+    # ---- API vs UI response ----
+    if request.headers.get("Accept") == "application/json":
+        return jsonify(response)
+
+    return render_template("result.html", result=response)
+
+
+# -------------------- MAIN --------------------
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -6,7 +6,10 @@ from modules.text_processor import extract_resume_text, clean_text
 from modules.skill_extractor import extract_skills
 from modules.similarity import calculate_similarity
 from modules.db import save_result
-from modules.scoring import generate_explanation  # you already conceptually have this
+from modules.scoring import generate_explanation
+from modules.role_resolver import resolve_role
+from modules.weighted_scoring import calculate_weighted_skill_score
+
 
 # -------------------- CONFIG --------------------
 
@@ -35,7 +38,8 @@ def home():
 
 @app.route("/upload", methods=["POST"])
 def upload_resume():
-    # ---- Validate resume file ----
+
+    # ---------- Resume Validation ----------
     if "resume" not in request.files:
         return "Resume file is missing", 400
 
@@ -51,43 +55,53 @@ def upload_resume():
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(file_path)
 
-    # ---- Validate JD ----
+    # ---------- JD Validation ----------
     jd_text = request.form.get("jd", "").strip()
     if not jd_text:
         return "Job Description is required", 400
 
-    # ---- Text Processing ----
+    job_title = request.form.get("job_title", "").strip()
+
+    # ---------- Text Processing ----------
     resume_text = extract_resume_text(file_path)
     clean_jd = clean_text(jd_text)
 
-    # ---- Skill Extraction ----
+    # ---------- Skill Extraction ----------
     resume_skills = extract_skills(resume_text)
     jd_skills = extract_skills(clean_jd)
 
     missing_skills = list(set(jd_skills) - set(resume_skills))
 
-    # ---- Scoring ----
+    # ---------- Role Resolution ----------
+    role, tags = resolve_role(job_title, clean_jd)
+
+    # ---------- Weighted Skill Scoring ----------
+    weighted_skill_score = calculate_weighted_skill_score(
+        resume_skills,
+        role
+    )
+
+    # ---------- Similarity Scoring ----------
     similarity_score = calculate_similarity(resume_text, clean_jd)
 
-    if not jd_skills:
-        skill_match_percentage = 0.0
-    else:
-        skill_match_percentage = round(
-            ((len(jd_skills) - len(missing_skills)) / len(jd_skills)) * 100, 2
-        )
-
+    # ---------- Final Score ----------
     final_score = round(
-        (0.6 * skill_match_percentage) + (0.4 * similarity_score), 2
+        (0.7 * weighted_skill_score) + (0.3 * similarity_score),
+        2
     )
 
+    # ---------- Explanation ----------
     explanation = generate_explanation(
-        skill_match_percentage,
-        similarity_score
+        weighted_skill_score,
+        similarity_score,
+        role
     )
 
-    # ---- Response Object ----
+    # ---------- Response Object ----------
     response = {
-        "skill_match_percentage": skill_match_percentage,
+        "canonical_role": role,
+        "specializations": tags,
+        "weighted_skill_score": weighted_skill_score,
         "similarity_score": similarity_score,
         "final_match_score": final_score,
         "resume_skills": resume_skills,
@@ -96,10 +110,10 @@ def upload_resume():
         "explanation": explanation
     }
 
-    # ---- Persist Result ----
+    # ---------- Persist Result ----------
     save_result(response)
 
-    # ---- API vs UI response ----
+    # ---------- API vs UI ----------
     if request.headers.get("Accept") == "application/json":
         return jsonify(response)
 

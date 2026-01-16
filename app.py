@@ -3,6 +3,8 @@ import os
 from flask import Flask, render_template, request
 from modules.text_processor import extract_resume_text, clean_text
 from modules.skill_extractor import extract_skills
+from modules.similarity import calculate_similarity
+from flask import jsonify
 
 app = Flask(__name__)
 
@@ -40,17 +42,41 @@ def upload_resume():
     jd_skills = extract_skills(clean_jd)
 
     missing_skills = list(set(jd_skills) - set(resume_skills))
+    similarity_score = calculate_similarity(resume_text, clean_jd)
 
-    return f"""
-    <h3>Resume Skills</h3>
-    <pre>{resume_skills}</pre>
+    if len(jd_skills) == 0:
+        skill_match_percentage = 0
+    else:
+        skill_match_percentage = round(
+            (len(set(jd_skills) - set(missing_skills)) / len(jd_skills)) * 100, 2
+        )
+    final_score = round(
+        (0.6 * skill_match_percentage) + (0.4 * similarity_score), 2
+    )
 
-    <h3>JD Skills</h3>
-    <pre>{jd_skills}</pre>
+    def generate_explanation(skill_match, similarity):
+        if skill_match < 40:
+            return "Low match due to missing core required skills."
+        elif similarity < 20:
+            return "Profile background differs significantly from the job role."
+        elif skill_match >= 70 and similarity >= 50:
+            return "Strong match with required skills and role alignment."
+        else:
+            return "Partial match; some skills and experience alignment present."
 
-    <h3>Missing Skills</h3>
-    <pre>{missing_skills}</pre>
-    """
+    explanation = generate_explanation(skill_match_percentage, similarity_score)
+
+    response = {
+        "skill_match_percentage": skill_match_percentage,
+        "similarity_score": similarity_score,
+        "final_match_score": final_score,
+        "resume_skills": resume_skills,
+        "jd_skills": jd_skills,
+        "missing_skills": missing_skills,
+        "explanation": explanation
+    }
+
+    return jsonify(response)
 
     # return f"<pre>{resume_text[:3000]}</pre>"
     # return f"File uploaded successfully: {file.filename}"

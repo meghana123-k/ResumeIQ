@@ -6,6 +6,5 @@ SKILLS = [
     "oop", "object oriented programming",
     "rest api", "git", "github",
     "postman",
-    "manual testing", "regression testing",
-    "smoke testing", "sdlc", "stlc"
+    "manual testing", "regression testing", "sdlc", "stlc"
 ]

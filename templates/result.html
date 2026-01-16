@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>ResumeIQ Result</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
@@ -24,10 +23,7 @@
             box-shadow: 0 25px 60px rgba(0,0,0,0.25);
         }
 
-        h1 {
-            text-align: center;
-            margin-bottom: 10px;
-        }
+        h1 { text-align: center; }
 
         .score {
             text-align: center;
@@ -58,11 +54,6 @@
         .box p {
             font-size: 22px;
             font-weight: 700;
-            margin-top: 5px;
-        }
-
-        .section {
-            margin-top: 30px;
         }
 
         .chips {
@@ -76,6 +67,10 @@
             border-radius: 999px;
             font-size: 13px;
             font-weight: 600;
+        }
+        .jd-skill {
+        background: #e0e7ff;
+        color: #1e3a8a;
         }
 
         .matched {
@@ -107,9 +102,10 @@
         }
     </style>
 </head>
-<body>
 
+<body>
 <div class="card">
+
     <h1>Resume Match Report</h1>
 
     <div class="score">{{ result.final_match_score }}%</div>
@@ -125,24 +121,28 @@
         </div>
     </div>
 
-    <div class="section">
-        <h3>✔ Skills Found in Resume</h3>
-        <div class="chips">
-            {% for skill in result.resume_skills %}
-                <span class="chip matched">{{ skill }}</span>
-            {% endfor %}
-        </div>
+    <h3>✔ Skills Found in Resume</h3>
+    <div class="chips">
+        {% for skill in result.resume_skills %}
+            <span class="chip matched">{{ skill }}</span>
+        {% endfor %}
+    </div>
+    <h3 style="margin-top:25px;">📄 Skills Required in Job Description</h3>
+    <div class="chips">
+        {% for skill in result.jd_skills %}
+            <span class="chip jd-skill">{{ skill }}</span>
+        {% endfor %}
     </div>
 
-    <div class="section">
-        <h3>❌ Missing Skills</h3>
-        <div class="chips">
+    <h3 style="margin-top:25px;">❌ Missing Skills</h3>
+    <div class="chips">
+        {% if result.missing_skills %}
             {% for skill in result.missing_skills %}
                 <span class="chip missing">{{ skill }}</span>
-            {% else %}
-                <span class="chip matched">No missing skills 🎉</span>
             {% endfor %}
-        </div>
+        {% else %}
+            <span class="chip matched">No missing skills 🎉</span>
+        {% endif %}
     </div>
 
     <div class="explanation">
@@ -150,7 +150,7 @@
     </div>
 
     <a href="/" class="back">← Analyze another resume</a>
-</div>
 
+</div>
 </body>
 </html>

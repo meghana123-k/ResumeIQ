@@ -5,5 +5,5 @@ SKILLS = [
     "data structures", "algorithms",
     "rest api", "git", "github",
     "postman",
-    "manual testing", "regression testing", "sdlc", "stlc"
+    "manual testing", "regression testing", "sdlc", "stlc, json"
 ]

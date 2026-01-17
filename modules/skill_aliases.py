@@ -8,6 +8,7 @@ SKILL_ALIASES = {
         "rest api",
         "restful api",
         "rest services",
+        "restful services",
         "api development"
     ],
     "data structures": [

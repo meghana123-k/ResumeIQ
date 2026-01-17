@@ -26,13 +26,20 @@
         </div>
     </div>
 
-    <h3>✔ Skills Found in Resume</h3>
-    <div class="chips">
-        {% for skill in result.resume_skills %}
-            <span class="chip matched">{{ skill }}</span>
-        {% endfor %}
+    <div class="explanation">
+        {{ result.explanation }}
     </div>
-    <h3 style="margin-top:25px;">📄 Skills Required in Job Description</h3>
+
+    <h3>✔ Matched Skills</h3>
+        <div class="chips">
+            {% for skill in result.jd_skills %}
+                {% if skill in result.resume_skills %}
+                    <span class="chip matched">{{ skill }}</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+    <h3 style="margin-top:25px;">📄 Required Skills (Job Description)</h3>
     <div class="chips">
         {% for skill in result.jd_skills %}
             <span class="chip jd-skill">{{ skill }}</span>
@@ -49,10 +56,17 @@
             <span class="chip matched">No missing skills 🎉</span>
         {% endif %}
     </div>
-
-    <div class="explanation">
-        {{ result.explanation }}
+    <h3 style="margin-top:25px;">➕ Additional Skills (Not Required)</h3>
+    <div class="chips">
+        {% if result.extra_skills %}
+            {% for skill in result.extra_skills %}
+                <span class="chip extra">{{ skill }}</span>
+            {% endfor %}
+        {% else %}
+            <span class="chip neutral">No additional skills</span>
+        {% endif %}
     </div>
+
 
     <a href="/" class="back">← Analyze another resume</a>
 

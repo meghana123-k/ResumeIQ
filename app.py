@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 from modules.text_processor import extract_resume_text, clean_text
 from modules.skill_extractor import extract_skills
 from modules.similarity import calculate_similarity
+from modules.scoring import generate_explanation
 from modules.db import save_result
 
 # -------------------- CONFIG --------------------
@@ -55,39 +56,51 @@ def upload_resume():
     resume_text = extract_resume_text(file_path)
     clean_jd = clean_text(jd_text)
 
-    # -------- Skill Extraction (STATIC) --------
+    # -------- Skill Extraction --------
     resume_skills = extract_skills(resume_text)
     jd_skills = extract_skills(clean_jd)
 
-    # -------- Missing Skills --------
     resume_skill_set = set(resume_skills)
-    missing_skills = list(set(jd_skills) - resume_skill_set)
+    jd_skill_set = set(jd_skills)
+
+    # -------- Missing & Extra Skills --------
+    missing_skills = sorted(list(jd_skill_set - resume_skill_set))
+    extra_skills = sorted(list(resume_skill_set - jd_skill_set))
 
     # -------- Skill Match Percentage --------
-    if jd_skills:
+    if jd_skill_set:
         skill_match_percentage = round(
-            ((len(jd_skills) - len(missing_skills)) / len(jd_skills)) * 100,
+            ((len(jd_skill_set) - len(missing_skills)) / len(jd_skill_set)) * 100,
             2
         )
     else:
         skill_match_percentage = 0.0
 
-    # -------- Similarity Scoring --------
-    similarity_score = calculate_similarity(resume_text, clean_jd)
-
-    # -------- Final Match Score --------
-    final_match_score = round(
-        (0.6 * skill_match_percentage) + (0.4 * similarity_score),
+    # -------- Text Similarity --------
+    similarity_score = round(
+        calculate_similarity(resume_text, clean_jd),
         2
     )
 
-    # -------- Simple Explanation --------
-    if skill_match_percentage >= 70:
-        explanation = "Strong alignment with required skills."
-    elif skill_match_percentage >= 40:
-        explanation = "Partial match; some important skills are missing."
+    # -------- Final Match Score (Conditional Weighting) --------
+    if skill_match_percentage == 100:
+        final_match_score = round(
+            (0.8 * skill_match_percentage) + (0.2 * similarity_score),
+            2
+        )
     else:
-        explanation = "Low match due to missing key required skills."
+        final_match_score = round(
+            (0.6 * skill_match_percentage) + (0.4 * similarity_score),
+            2
+        )
+
+    # -------- Explanation (Centralized Logic) --------
+    explanation = generate_explanation(
+        skill_match_percentage=skill_match_percentage,
+        text_similarity_percentage=similarity_score,
+        missing_skills_count=len(missing_skills),
+        extra_skills_count=len(extra_skills)
+    )
 
     # -------- Response Object --------
     response = {
@@ -97,6 +110,7 @@ def upload_resume():
         "resume_skills": resume_skills,
         "jd_skills": jd_skills,
         "missing_skills": missing_skills,
+        "extra_skills": extra_skills,
         "explanation": explanation
     }
 
